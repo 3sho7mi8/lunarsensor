@@ -29,7 +29,8 @@ This is an ambient light sensor server that provides lux readings to the Lunar m
 
 **Sensor Reading Logic**
 - The `read_lux()` function at the bottom of `lunarsensor.py` is where actual sensor implementation goes
-- Base implementation reads from `/tmp/lux` file or returns default 400.0 lux
+- Primary implementation uses td-usb script to read from IWS660 USB ambient light sensor
+- Fallback: reads from `/tmp/lux` file or returns default 400.0 lux
 - Uses `sensor_lock` for thread-safe access to potentially blocking I/O operations
 - Offloads sync operations to executor to maintain async performance
 
@@ -57,6 +58,33 @@ This is an ambient light sensor server that provides lux readings to the Lunar m
 - Service logs: `~/Library/Logs/lunarsensor.log`
 - Stop service: `launchctl unload ~/Library/LaunchAgents/com.lunarsensor.plist`
 - Start service: `launchctl load ~/Library/LaunchAgents/com.lunarsensor.plist`
+
+### TD-USB IWS660 Setup
+For USB ambient light sensor support, configure sudo access:
+
+1. Create sudoers file for td-usb access:
+   ```bash
+   sudo tee /etc/sudoers.d/td-usb << 'EOF'
+   # Allow user to run td-usb commands without password
+   $USER ALL=(ALL) NOPASSWD: /path/to/td-usb/td-usb
+   $USER ALL=(ALL) NOPASSWD: /path/to/td-usb/run-td-usb.sh
+   EOF
+   sudo chmod 440 /etc/sudoers.d/td-usb
+   ```
+
+2. Set TD_USB_SCRIPT environment variable in service plist:
+   ```xml
+   <key>EnvironmentVariables</key>
+   <dict>
+       <key>TD_USB_SCRIPT</key>
+       <string>/path/to/td-usb/run-td-usb.sh</string>
+   </dict>
+   ```
+
+3. Verify USB device detection:
+   ```bash
+   system_profiler SPUSBDataType | grep -A 10 "IWS660"
+   ```
 
 ### Testing
 - One-shot: `curl lunarsensor.local/sensor/ambient_light`
